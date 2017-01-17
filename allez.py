@@ -40,20 +40,32 @@ snapshot.particles.types = plist
 class Origin:
     def __init__(self,tag):
         self.tag = tag
+        self.move=False
 
 class Fork:
-    def __init__(self,tag,position):
-        self.tag = tag
-        self.position = position
+    def __init__(self,tag,position,bond_tag):
+        self.tag = tag  #particle tagg
+        self.position = position #Position on the chromosome
+        self.bond_tag = bond_tag #Bond between diffusive elements and monomec
+        self.move=True
+        self.update_bond=False
 
+    def update_position(self,dt):
+        oldp = int(self.position)
+        self.position += self.d * dt    
+        if oldp != int(self.position):
+            self.update_bond =  True
+        else:
+            self.update_bond =  False
+        
 class RFork(Fork):
-    def __init__(self,tag,position):
-        Fork.__init__(self,tag,position)
+    def __init__(self,tag,position,bond_tag):
+        Fork.__init__(self,tag,position,bond_tag)
         self.d = 1
         
 class LFork(Fork):
-    def __init__(self,tag,position):
-        Fork.__init__(self,tag,position)
+    def __init__(self,tag,position,bond_tag):
+        Fork.__init__(self,tag,position,bond_tag)
         self.d = -1
 
 class Polymer():
@@ -66,12 +78,27 @@ class Polymer():
         if ptag in self.origins:
             return True
         
-    def add_fork(self,ptags,otag):
+    def add_fork(self,ptags,otag,new_btag):
         for i,mod in enumerate(self.modules):
             if mod.tag == otag:
                 break
-        self.modules.insert(i,RFork(ptags[1],otag))
-        self.modules.insert(i,LFork(ptags[0],otag))
+        self.modules.insert(i,RFork(ptags[1],otag,new_btag[1]))
+        self.modules.insert(i,LFork(ptags[0],otag,new_btag[0]))
+        
+    def increment_time(self,dt):
+        update_bond = []
+        for m in self.modules:
+            if self.move:
+                m.update_position(dt)
+                if m.update_bond:
+                    update_bond.append([m.bond_tag,int(self.position)])
+                    
+        #chek for colisions:
+        #for m in  
+              
+        return [],update_bond,[],[],[]
+        #bind_diff,shifted_bonds,passivated_origin,to_release,alone = P.increment_time(dt)
+
         
 
 offset_bond = 0
@@ -244,8 +271,13 @@ def Release(btags,snp):
     for bt in btags:
         snp.bonds.remove(bt)
         
+def Shift(bonds):
+    for tag,new in bonds:
+        b = snp.bond.get(tag)
+        b.a = new
+        
 
-for i in range(50):
+for i in range(5):
     #system.restore_snapshot(snp)
     hoomd.run(1000)
     
@@ -258,16 +290,17 @@ for i in range(50):
     group_origin = group.type(name="Ori", type='Ori')
     
     
-    """
 
     for P in lPolymers:
-        to_bind,to_release,alone,passivated_origin = P.increment_time(dt)
-        To_bind.append(["polymer_A",to_bind]) # Pair of diffu to attach
-        To_release.append(to_release)  #Bond tags to break
-        Change_type.append(["A_ori",passivated_origin])
-        Change_type.append(["Mono_Diffu",alone])
+        bind_diff,shifted_bonds,passivated_origin,to_release,alone = P.increment_time(1)
         
-    """
+        Bind("Diff_Diff",bind_diff,snp) # Pair of diffu to attach
+        Shift(shifted_bonds)
+        Release.append(to_release)  #Bond tags to release (Alone particle)
+        Change_type.append("A_ori",passivated_origin,snp)
+        Change_type.append("Mono_Diffu",alone,snp)
+        
+        
     #Update Type because of (Ori to passivated)
 
     #Update group
@@ -313,13 +346,15 @@ for i in range(50):
                     for P in lPolymers:
                         if P.has_origin(tag_origin[iorigin]):
                             
-                            P.add_fork(ptags,tag_origin)
                             Change_type('F_Diff',ptags,snp)
                             particular_origin = tag_origin[iorigin]
                             Change_type("A_Ori", [particular_origin], snp)
-                            Bind("Mono_Diff", [[particular_origin, ptags[0]],
+                            new_btags = Bind("Mono_Diff", [[particular_origin, ptags[0]],
                                               [particular_origin ,ptags[1]]], snp)
                             activated.append(iorigin)
+                            
+                            P.add_fork(ptags,tag_origin,new_btags)
+
                             break
                     break
     
