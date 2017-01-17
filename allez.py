@@ -84,8 +84,6 @@ for i in range(N_diffu):
         
         initp +=new
         snapshot.particles.position[offset_particle + p ] = initp
-        
-        
         snapshot.particles.typeid[offset_particle + p ] = 2  #Diffu
             
 
@@ -162,9 +160,9 @@ method=md.integrate.langevin(group=all_beads,kT=1,seed=np.random.randint(0,100))
 snp = system.take_snapshot()
 
 for i in range(10):
-    system.restore_snapshot(snp)
+    #system.restore_snapshot(snp)
     hoomd.run(1000)
-    snp = system.take_snapshot()
+    #snp = system.take_snapshot()
 
 print(gauss.get_energy(all_beads),wall_force_slj.get_energy(all_beads))
 print(time.time() -t0)
