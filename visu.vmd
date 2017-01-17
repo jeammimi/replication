@@ -323,7 +323,7 @@ display eyesep       0.065000
 display focallength  2.000000
 display height       6.000000
 display distance     -2.000000
-display projection   Perspective
+display projection   Orthographic
 display nearclip set 0.500000
 display farclip  set 10.000000
 display depthcue   on
@@ -340,8 +340,8 @@ display aodirect 0.300000
 display dof off
 display dof_fnumber 64.000000
 display dof_focaldist 0.700000
-mol new /home/jarbona/test-hoomd/atoms.xml type hoomd first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/jarbona/test-hoomd/poly.dcd type dcd first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/jarbona/test-hoomd/data/atoms.xml type hoomd first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/jarbona/test-hoomd/data/poly.dcd type dcd first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
 mol representation Lines 5.000000
 mol color Fragment
@@ -351,7 +351,7 @@ mol addrep top
 mol selupdate 0 top 0
 mol colupdate 0 top 0
 mol scaleminmax top 0 0.000000 15.000000
-mol smoothrep top 0 0
+mol smoothrep top 0 5
 mol drawframes top 0 {now}
 mol clipplane center 0 0 top {0.0 0.0 0.0}
 mol clipplane color  0 0 top {0.5 0.5 0.5 }
@@ -377,8 +377,76 @@ mol clipplane center 5 0 top {0.0 0.0 0.0}
 mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
+mol representation VDW 2.800000 12.000000
+mol color Type
+mol selection {type Ori}
+mol material Opaque
+mol addrep top
+mol selupdate 1 top 0
+mol colupdate 1 top 0
+mol scaleminmax top 1 0.000000 0.000000
+mol smoothrep top 1 5
+mol drawframes top 1 {now}
+mol clipplane center 0 1 top {0.0 0.0 0.0}
+mol clipplane color  0 1 top {0.5 0.5 0.5 }
+mol clipplane normal 0 1 top {0.0 0.0 1.0}
+mol clipplane status 0 1 top {0}
+mol clipplane center 1 1 top {0.0 0.0 0.0}
+mol clipplane color  1 1 top {0.5 0.5 0.5 }
+mol clipplane normal 1 1 top {0.0 0.0 1.0}
+mol clipplane status 1 1 top {0}
+mol clipplane center 2 1 top {0.0 0.0 0.0}
+mol clipplane color  2 1 top {0.5 0.5 0.5 }
+mol clipplane normal 2 1 top {0.0 0.0 1.0}
+mol clipplane status 2 1 top {0}
+mol clipplane center 3 1 top {0.0 0.0 0.0}
+mol clipplane color  3 1 top {0.5 0.5 0.5 }
+mol clipplane normal 3 1 top {0.0 0.0 1.0}
+mol clipplane status 3 1 top {0}
+mol clipplane center 4 1 top {0.0 0.0 0.0}
+mol clipplane color  4 1 top {0.5 0.5 0.5 }
+mol clipplane normal 4 1 top {0.0 0.0 1.0}
+mol clipplane status 4 1 top {0}
+mol clipplane center 5 1 top {0.0 0.0 0.0}
+mol clipplane color  5 1 top {0.5 0.5 0.5 }
+mol clipplane normal 5 1 top {0.0 0.0 1.0}
+mol clipplane status 5 1 top {0}
+mol representation VDW 2.900000 12.000000
+mol color Type
+mol selection {type Diffu}
+mol material Opaque
+mol addrep top
+mol selupdate 2 top 0
+mol colupdate 2 top 0
+mol scaleminmax top 2 0.000000 0.000000
+mol smoothrep top 2 0
+mol drawframes top 2 {now}
+mol clipplane center 0 2 top {0.0 0.0 0.0}
+mol clipplane color  0 2 top {0.5 0.5 0.5 }
+mol clipplane normal 0 2 top {0.0 0.0 1.0}
+mol clipplane status 0 2 top {0}
+mol clipplane center 1 2 top {0.0 0.0 0.0}
+mol clipplane color  1 2 top {0.5 0.5 0.5 }
+mol clipplane normal 1 2 top {0.0 0.0 1.0}
+mol clipplane status 1 2 top {0}
+mol clipplane center 2 2 top {0.0 0.0 0.0}
+mol clipplane color  2 2 top {0.5 0.5 0.5 }
+mol clipplane normal 2 2 top {0.0 0.0 1.0}
+mol clipplane status 2 2 top {0}
+mol clipplane center 3 2 top {0.0 0.0 0.0}
+mol clipplane color  3 2 top {0.5 0.5 0.5 }
+mol clipplane normal 3 2 top {0.0 0.0 1.0}
+mol clipplane status 3 2 top {0}
+mol clipplane center 4 2 top {0.0 0.0 0.0}
+mol clipplane color  4 2 top {0.5 0.5 0.5 }
+mol clipplane normal 4 2 top {0.0 0.0 1.0}
+mol clipplane status 4 2 top {0}
+mol clipplane center 5 2 top {0.0 0.0 0.0}
+mol clipplane color  5 2 top {0.5 0.5 0.5 }
+mol clipplane normal 5 2 top {0.0 0.0 1.0}
+mol clipplane status 5 2 top {0}
 mol rename top atoms.xml
-set viewpoints([molinfo top]) {{{1 0 0 -5.37214} {0 1 0 4.66098} {0 0 1 -2.03915} {0 0 0 1}} {{-0.64355 0.759683 0.0933863 0} {0.401438 0.43889 -0.803881 0} {-0.65168 -0.479851 -0.587416 0} {0 0 0 1}} {{0.0501312 0 0 0} {0 0.0501312 0 0} {0 0 0.0501312 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -5.37214} {0 1 0 4.66098} {0 0 1 -2.03915} {0 0 0 1}} {{0.557939 0.826793 -0.0715337 0} {-0.17504 0.032984 -0.984009 0} {-0.811209 0.561538 0.163126 0} {0 0 0 1}} {{0.024089 0 0 0} {0 0.024089 0 0} {0 0 0.024089 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
 # done with molecule 0
@@ -413,9 +481,11 @@ color scale colors WBlk {1.0 1.0 1.0} {0.5 0.5 0.5} {0.0 0.0 0.0}
     {color Name {LPA} green}
     {color Name {LPB} green}
     {color Name {A} pink}
+    {color Name {D} cyan}
     {color Type {LP} green}
     {color Type {DRUD} pink}
     {color Type {A} pink}
+    {color Type {D} cyan}
     {color Element {X} cyan}
     {color Element {Ac} ochre}
     {color Element {Ag} ochre}
