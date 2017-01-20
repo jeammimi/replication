@@ -11,6 +11,7 @@ import numpy as np
 import scipy.linalg as linalg
 from scipy.spatial.distance import cdist
 from PMotion import Polymer
+import _pickle as cPickle
 seed=0
 np.random.seed(seed)
 hoomd.context.initialize("--mode=cpu")
@@ -19,9 +20,9 @@ Np = 16   #Number of polymer chains
 npp = int(150 * 2 * 2   )# size of each polymer chain
 R = 16 * 2
 data_folder = "../data/"
-N_diffu = 20 #Number of diffusing elements x2
-cut_off_inte = 10 #1.5
-p_inte = 0. # 1/5
+N_diffu = 1000 #Number of diffusing elements x2
+cut_off_inte = 2 #1.5
+p_inte = 0.2 # 1/5
 dt = 0.1
 
 #########################################
@@ -46,7 +47,7 @@ lPolymers = []
 #Polymer chains
 for i in range(Np):
     npp = Npp[i] # Number of particles
-    pos_origins = list(set([np.random.randint(npp) for ori in range(4)])) #Position of origin of replication
+    pos_origins = list(set([np.random.randint(npp) for ori in range(50)])) #Position of origin of replication
     
     initp = 2*np.random.rand(3)-1
     for p in range(npp-1):
@@ -69,8 +70,9 @@ for i in range(Np):
             snapshot.particles.typeid[offset_particle + p ] = 0  #A
             
 
-    lPolymers.append(Polymer(offset_particle,
-                             offset_particle + npp,
+    lPolymers.append(Polymer(i,
+                             offset_particle,
+                             offset_particle + npp - 1,
                              [po + offset_particle for po in pos_origins]))
     offset_particle += npp 
 
@@ -225,7 +227,9 @@ def Shift(bonds,snp):
         #print(new,b)
         #print(dir(snp.bonds))
         #b.a = new
-        
+
+group_diffu = group.type(name="Diff", type='Diff')
+group_origin = group.type(name="Ori", type='Ori')      
 
 for i in range(1000):
     #system.restore_snapshot(snp)
@@ -249,14 +253,15 @@ for i in range(1000):
         Change_type("Diff",diff_diff,snp)
         
         
+    group_diffu.force_update()
+    group_origin.force_update()
     #Update Type because of (Ori to passivated)
 
     #Update group
 
     #Find new interacting particles
 
-    group_diffu = group.type(name="Diff", type='Diff')
-    group_origin = group.type(name="Ori", type='Ori')
+   
     # First check if Dimer are close from one origin  
 
     p_diffu = np.array([p.position for p in group_diffu])
@@ -264,7 +269,7 @@ for i in range(1000):
     p_origin = np.array([p.position for p in group_origin])
     tag_origin = [p.tag for p in group_origin]
     
-    if tag_diffu != [] and p_diffu != []:
+    if tag_diffu != [] and tag_origin != []:
         distances = cdist(p_diffu,p_origin) 
         print(distances.shape)
         #Reorder the distances with the dimer tags
@@ -291,13 +296,14 @@ for i in range(1000):
                     #Needed because we don't want an origin to be activated twice
                     continue
                 if di < cut_off_inte:
-                    if np.random.rand() > p_inte:
+                    if np.random.rand() < p_inte:
                         
-                        Release([btag],snp) #Break the dimer
+                        
                         
                         for P in lPolymers:
                             if P.has_origin(tag_origin[iorigin]):
                                 
+                                Release([btag],snp) #Break the dimer
                                 Change_type('F_Diff',ptags,snp) #Fork diffusion
                                 particular_origin = tag_origin[iorigin]
                                 Change_type('A_Ori', [particular_origin], snp)
@@ -309,7 +315,10 @@ for i in range(1000):
     
                                 break
                         break
-    
+    #t0 = time.time()
+    with open(data_folder+"polymer_timing.dat","wb") as f:
+        cPickle.dump(lPolymers,f)
+    #print(time.time() -t0)
     # Then if it is the case attach them according to p law to the origin
     
 
