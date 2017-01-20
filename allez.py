@@ -16,14 +16,16 @@ seed=0
 np.random.seed(seed)
 hoomd.context.initialize("--mode=cpu")
 
-Np = 16   #Number of polymer chains
+Np = 1   #Number of polymer chains
 npp = int(150 * 2 * 2   )# size of each polymer chain
 R = 16 * 2
 data_folder = "../data/"
-N_diffu = 1000 #Number of diffusing elements x2
-cut_off_inte = 2 #1.5
+N_diffu = 20 #Number of diffusing elements x2
+cut_off_inte = 10 #1.5
 p_inte = 0.2 # 1/5
 dt = 0.1
+N_origins = 4
+separate_fork = True
 
 #########################################
 #Define polymer bonding and positions
@@ -47,7 +49,7 @@ lPolymers = []
 #Polymer chains
 for i in range(Np):
     npp = Npp[i] # Number of particles
-    pos_origins = list(set([np.random.randint(npp) for ori in range(50)])) #Position of origin of replication
+    pos_origins = list(set([np.random.randint(npp) for ori in range(N_origins)])) #Position of origin of replication
     
     initp = 2*np.random.rand(3)-1
     for p in range(npp-1):
@@ -277,8 +279,9 @@ for i in range(1000):
         PTags = []
         #t0 = time.time()
         Btags = []
+        #Groups Diff-Diff by dond to compute the distances
         for b in system.bonds:
-            if b.type == 'Diff_Diff':
+            if b.type == 'Diff_Diff' and system.particles[b.a].type == 'Diff':
                 Indexes.append(tag_diffu.index(b.a))
                 Indexes.append(tag_diffu.index(b.b))
                 Btags.append(b.tag)
@@ -303,7 +306,9 @@ for i in range(1000):
                         for P in lPolymers:
                             if P.has_origin(tag_origin[iorigin]):
                                 
-                                Release([btag],snp) #Break the dimer
+                                if separate_fork:
+                                    Release([btag],snp) #Break the dimer
+                                    btag = None
                                 Change_type('F_Diff',ptags,snp) #Fork diffusion
                                 particular_origin = tag_origin[iorigin]
                                 Change_type('A_Ori', [particular_origin], snp)
@@ -311,7 +316,7 @@ for i in range(1000):
                                                   [particular_origin ,ptags[1]]], snp)
                                 activated.append(iorigin)
                                 
-                                P.add_fork(ptags,particular_origin,new_btags)
+                                P.add_fork(ptags,particular_origin,new_btags,btag)
     
                                 break
                         break

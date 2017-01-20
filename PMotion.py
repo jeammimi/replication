@@ -35,7 +35,7 @@ class Origin:
         return "Origin %i %s"%(self.path[-1][0],add)
 
 class Fork:
-    def __init__(self,tag,position,bond_tag,t):
+    def __init__(self,tag,position,bond_tag,t,diff_diff_tag):
         self.tag = tag  #particle tagg
         self.position = position #Position on the chromosome
         self.bond_tag = bond_tag #Bond between diffusive elements and monomec
@@ -45,6 +45,7 @@ class Fork:
         self.path = [[position,t]]
         self.t = t
         self.type="fork"
+        self.diff_diff_tag = diff_diff_tag
 
     def update_position(self,dt):
         #print(self.position)
@@ -67,13 +68,13 @@ class Fork:
         return "%sFork %i"%(add,self.path[-1][0])
         
 class RFork(Fork):
-    def __init__(self,tag,position,bond_tag,t):
-        Fork.__init__(self,tag,position,bond_tag,t)
+    def __init__(self,tag,position,bond_tag,t,diff_diff_tag):
+        Fork.__init__(self,tag,position,bond_tag,t,diff_diff_tag)
         self.d = 1
         
 class LFork(Fork):
-    def __init__(self,tag,position,bond_tag,t):
-        Fork.__init__(self,tag,position,bond_tag,t)
+    def __init__(self,tag,position,bond_tag,t,diff_diff_tag):
+        Fork.__init__(self,tag,position,bond_tag,t,diff_diff_tag)
         self.d = -1
 
 class Polymer():
@@ -105,7 +106,7 @@ class Polymer():
                 [m.state for m in self.modules],
                 [m.state for m in self.ended]]
         
-    def add_fork(self,ptags,otag,new_btag):
+    def add_fork(self,ptags,otag,new_btag,diff_diff_tag):
         found = False
         for i,mod in enumerate(self.modules):
             if mod.tag == otag:
@@ -115,8 +116,8 @@ class Polymer():
             print("Warning origin not found")
            # with open("logp.txt","a") as f:
            #     f.writelines("%i Warning, origin already used %i\n"%(self.number,self.t))
-        self.modules.insert(i+1,RFork(ptags[1],otag,new_btag[1],self.t))
-        self.modules.insert(i,LFork(ptags[0],otag,new_btag[0],self.t))
+        self.modules.insert(i+1,RFork(ptags[1],otag,new_btag[1],self.t, diff_diff_tag))
+        self.modules.insert(i,LFork(ptags[0],otag,new_btag[0],self.t, diff_diff_tag))
         if self.modules[i + 1].passivated or self.modules[i + 1].activated:
             print("Warning origin already used")
             #with open("logp.txt","a") as f:
@@ -165,6 +166,18 @@ class Polymer():
                 if m.position < self.start or m.position > self.end:
                     alone.append(m.tag)
                     to_release.append(m.bond_tag)
+                    
+                    #Release possible diff_diff bonds
+                    if m.diff_diff_tag is not None:
+                        print("La")
+                        to_release.append(m.diff_diff_tag)
+                        to_erase = 0 + m.diff_diff_tag
+                        #Look for this tag in other fork:
+                        for other_fork in self.modules:
+                            if other_fork.type == "fork" and other_fork.diff_diff_tag == to_erase:
+                                print("Found")
+                                other_fork.diff_diff_tag = None
+                        
                     to_remove.append(im)
                     m.update_bond = False # because we will delete it
                     #Remove last path of the fork if up
@@ -233,6 +246,24 @@ class Polymer():
                         bind_diff.append([m.tag,self.modules[im + 1].tag])
                         to_remove.append(im)
                         to_remove.append(im + 1)
+                        
+                        #Release possible diff_diff bonds
+                        if m.diff_diff_tag is not None:
+                            to_release.append(m.diff_diff_tag)
+                            to_erase = 0 + m.diff_diff_tag
+                            #Look for this tag in other fork:
+                            for other_fork in self.modules:
+                                if other_fork.type == "fork" and other_fork.diff_diff_tag == to_erase:
+                                    other_fork.diff_diff_tag = None 
+                                    
+                        if self.modules[im + 1].diff_diff_tag is not None:
+                            to_release.append(self.modules[im + 1].diff_diff_tag)
+                            to_erase = 0 + self.modules[im + 1].diff_diff_tag
+                            #Look for this tag in other fork:
+                            for other_fork in self.modules:
+                                if other_fork.type == "fork" and other_fork.diff_diff_tag == to_erase:
+                                    other_fork.diff_diff_tag = None 
+                        
                         im += 1
                 elif m.update_bond:
                     update_bond.append([m.bond_tag,int(m.position)])
