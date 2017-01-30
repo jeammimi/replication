@@ -12,33 +12,94 @@ import scipy.linalg as linalg
 from scipy.spatial.distance import cdist
 from PMotion import Polymer
 import _pickle as cPickle
+from createPoly import len_chrom as ilen_chrom
+from createPoly import dist_centro,create_init_conf_yeast
 seed=0
 np.random.seed(seed)
 hoomd.context.initialize("--mode=cpu")
 
-Np = 1   #Number of polymer chains
+Np = 16  #Number of polymer chains
 npp = int(150 * 2 * 2   )# size of each polymer chain
 R = 16 * 2
 data_folder = "../data/"
-N_diffu = 20 #Number of diffusing elements x2
+N_diffu = 200 #Number of diffusing elements x2
 cut_off_inte = 10 #1.5
 p_inte = 0.2 # 1/5
 dt = 0.1
 N_origins = 4
 separate_fork = True
+spb = True
+microtubule_length = 0.4  #Micron
+nucleole=True
+diameter_nuc = R * 0.18
+special_start = True
+telomere = True
+Activ_Origins = ['Ori']
+visu = True
 
+
+if nucleole:
+    pass
+    #Activ_Origins += ['Nuc']
+
+
+Cent = [ np.random.randint(npp) for i in range(Np) ]
+len_chrom = [ npp for i in range(Np)]
+
+len_chrom = [ic * 4 for ic in ilen_chrom]
+Cent = [ c*4 for c in dist_centro]
+
+p_ribo = [[0,0] for i in range(16)]
+p_ribo[11] = [90*4,150]
+
+# End of parameter
+##########################################
+#Sim = []
 #########################################
 #Define polymer bonding and positions
+if special_start:
+    Sim = create_init_conf_yeast(len_chrom=len_chrom, dist_centro=Cent, p_ribo=p_ribo,
+                             Radius=R, Mt=microtubule_length * R)
+else:
+    Sim = []
 
-snapshot = data.make_snapshot(N=Np * npp + N_diffu*2, box=data.boxdim(L=2*R), bond_types=['polymer'])
 
-snapshot.bonds.resize(Np * (npp - 1) + N_diffu)
+spbp = 0 if not spb else 1
 
-Npp = [ npp for i in range(Np)]
 
-bond_list = ['Mono_Mono','Diff_Diff','Mono_Diff']
+
+Total_particle = sum(len_chrom) + N_diffu*2 + spbp
+list_nuc = [list(range(start,start+size)) if size != 0 else [] for start,size in p_ribo ]
+#print(list_nuc)
+#exit()
+
+snapshot = data.make_snapshot(N=Total_particle, box=data.boxdim(L=2*R), bond_types=['polymer'])
+
+spbb = Np if spb else 0
+
+if visu:
+    spbb = 0
+snapshot.bonds.resize(sum(len_chrom) -len(len_chrom) + N_diffu + spbb)
+
+
+
+bond_list = ['Mono_Mono','Diff_Diff','Mono_Diff']#
+if spb:
+    bond_list += ["Spb_Cen"]
+if nucleole:
+    bond_list += ["Mono_Nuc","Nuc_Nuc"]
 snapshot.bonds.types = bond_list
+
 plist = ['Mono','Ori','Diff','A_Ori','P_Ori','S_Diff','F_Diff']
+
+if spb:
+    plist.append("Spb")
+if nucleole:
+    plist += ['Nuc','A_Nuc','P_Nuc']
+    
+if telomere:
+    plist += ["Telo"]
+
 
 snapshot.particles.types = plist
         
@@ -46,30 +107,68 @@ snapshot.particles.types = plist
 offset_bond = 0
 offset_particle = 0
 lPolymers = []
+
+################################################
 #Polymer chains
+Cen_pos = []
 for i in range(Np):
-    npp = Npp[i] # Number of particles
+    
+    found_cen = False
+    npp = len_chrom[i] # Number of particles
     pos_origins = list(set([np.random.randint(npp) for ori in range(N_origins)])) #Position of origin of replication
     
-    initp = 2*np.random.rand(3)-1
+    if Sim == []:
+        initp = 2*np.random.rand(3)-1
+    else:
+        #print(i)
+        initp = Sim.molecules[i].coords[0]
+        
     for p in range(npp-1):
+        inuc = 0
+        if nucleole:
+            if p in list_nuc[i]:
+                inuc += 1
+            if p + 1 in list_nuc[i]:
+                inuc += 1
+                
         snapshot.bonds.group[offset_bond + p] = [offset_particle + p, offset_particle + p + 1]
-        snapshot.bonds.typeid[offset_bond + p] = bond_list.index('Mono_Mono')  # polymer_A
+        if inuc == 0:
+            snapshot.bonds.typeid[offset_bond + p] = bond_list.index('Mono_Mono')  # polymer_A
+        if inuc == 1:
+            snapshot.bonds.typeid[offset_bond + p] = bond_list.index('Mono_Nuc')  # polymer_A
+        if inuc == 2:
+            snapshot.bonds.typeid[offset_bond + p] = bond_list.index('Nuc_Nuc')  # polymer_A
+
     offset_bond += npp - 1
      
     for p in range(npp):
     #print(offset_bond, offset_bond + p)
-        new = 2*(2*np.random.rand(3)-1)
-        while linalg.norm(initp + new) > R-1:
+        if Sim == []:
             new = 2*(2*np.random.rand(3)-1)
-        
-        initp +=new
+            while linalg.norm(initp + new) > R-1:
+                new = 2*(2*np.random.rand(3)-1)
+            
+            initp +=new
+        else:
+            initp = Sim.molecules[i].coords[p]
+             
         snapshot.particles.position[offset_particle + p ] = initp
         
         if p in pos_origins:
-            snapshot.particles.typeid[offset_particle + p ] = 1  #Ori
+            snapshot.particles.typeid[offset_particle + p ] =   plist.index('Ori')#Ori
         else:
-            snapshot.particles.typeid[offset_particle + p ] = 0  #A
+            snapshot.particles.typeid[offset_particle + p ] =   plist.index('Mono') #A
+            
+        if spb and p == Cent[i]:
+            Cen_pos.append(offset_particle + p)
+
+            found_cen = True
+            
+        if nucleole and p in list_nuc[i]:
+            snapshot.particles.typeid[offset_particle + p ] = plist.index('Nuc')
+            
+        if p == 0 or p == npp - 1:
+            snapshot.particles.typeid[offset_particle + p ] = plist.index('Telo')
             
 
     lPolymers.append(Polymer(i,
@@ -78,10 +177,31 @@ for i in range(Np):
                              [po + offset_particle for po in pos_origins]))
     offset_particle += npp 
 
+    assert(found_cen == spb)
+    
+###################################################
+# SPD
+if spb:
+    tag_spb = 0 + offset_particle
+    #print(tag_spb)
+    #print(snapshot.particles[offset_particle])
+    snapshot.particles.position[offset_particle] = [-R + 0.1,0,0]
+    snapshot.particles.typeid[offset_particle ] = plist.index('Spb')
+    offset_particle += 1 
+    
+    if not visu:
+        for i in range(Np):
+            #print(offset_particle - 1, Cen_pos[i])
+            snapshot.bonds.group[offset_bond] = [offset_particle - 1, Cen_pos[i]]
+            snapshot.bonds.typeid[offset_bond] = bond_list.index('Spb_Cen')  # polymer_A
+    
+            offset_bond += 1
+    
+
+
 ############################################################
 #Diffusing elements
 #Defining useful classes
-
 
 
        
@@ -113,8 +233,12 @@ for i in range(N_diffu):
     
 #Load the configuration
 
-system = init.read_snapshot(snapshot)
 
+for i,p in enumerate(snapshot.bonds.group):
+    if p[0] == p[1]:
+        print(i,p)
+    
+system = init.read_snapshot(snapshot)
 
 for i,p in enumerate(system.particles):
     #print(p)
@@ -122,6 +246,10 @@ for i,p in enumerate(system.particles):
     assert p.tag == i
     
 for i,b in enumerate(system.bonds):
+    if b.a == b.b:
+        print(b.a,b.b)
+
+        raise
     #print(p)
     #exit()
     assert b.tag == i
@@ -137,12 +265,35 @@ harmonic.bond_coeff.set(bond_list, k=330.0, r0=1)
 
 harmonic.bond_coeff.set('Mono_Diff', k=10.0, r0=1)
 
-nl = md.nlist.tree(check_period=1)
+if spb:
+    harmonic.bond_coeff.set('Spb_Cen', k=1000.0, r0= R * microtubule_length)
+
+if nucleole:
+    harmonic.bond_coeff.set('Nuc_Nuc',k=330,r0=diameter_nuc)
+    harmonic.bond_coeff.set('Mono_Nuc',k=330,r0=diameter_nuc/2.+1./2)
+
+
+nl = md.nlist.tree(r_buff=0.4, check_period=1)
 
 #Potential for warmup
 gauss = md.pair.gauss(r_cut=3.0, nlist=nl)
 
 gauss.pair_coeff.set(plist, plist, epsilon=1.0, sigma=1.0)
+
+if nucleole:
+    for ip1,p1 in enumerate(plist):
+        for p2 in plist[ip1:]:
+            inuc = 0
+            if "Nuc" in p1:
+                inuc += 1
+            if "Nuc" in p2:
+                inuc += 1
+            if inuc == 1: 
+                gauss.pair_coeff.set(p1, p2, epsilon=.5, sigma=0.5 + diameter_nuc/2.,
+                                                          r_cut= (0.5 + diameter_nuc/2. ) *3)
+            if inuc == 2:
+                gauss.pair_coeff.set(p1, p2, epsilon=1.0, sigma=diameter_nuc,
+                                     r_cut = 3 * diameter_nuc )
 #gauss.pair_coeff.set('A', 'A', epsilon=1.0, sigma=1.0)
 #gauss.pair_coeff.set('A', 'A', epsilon=1.0, sigma=1.0)
 
@@ -154,18 +305,58 @@ sphere.add_sphere(r=R, origin=(0.0, 0.0, 0.0), inside=True)
 wall_force_slj=md.wall.slj(sphere, r_cut=3.0)
 wall_force_slj.force_coeff.set(plist, epsilon=1.0, sigma=1.0,r_cut=1.12)
 
+if nucleole:
+    wall_force_slj.force_coeff.set('Nuc', epsilon=1.0, sigma=diameter_nuc,r_cut=diameter_nuc*1.12)
+if telomere:
+    wall_force_slj.force_coeff.set(plist, epsilon=2.0, sigma=1.5,r_cut=3)
+
 #Group;
 all_beads = group.all()
-
-
+if spb:
+    Spb_g  = group.tag_list(name="Spb",tags=[tag_spb])
+    pspb = [p.position for p in Spb_g]
+    print(pspb)
+    
+    all_move = group.difference(name="move",a=all_beads,b=Spb_g)
+else:
+    all_move = all_beads
 #Log
 logger = analyze.log(filename=data_folder + 'mylog.log', period=1000, quantities=['temperature','potential_energy','kinetic_energy','volume','pressure'],overwrite=True)
 
 
 #Warmup
-method=md.integrate.mode_minimize_fire(group=all_beads,dt=0.05)
-while not(method.has_converged()):
-   hoomd.run(100)
+converged = False
+dt = 0.005
+while not converged:
+    try:
+       
+        method=md.integrate.mode_minimize_fire(group=all_move,dt=dt)
+        while not(method.has_converged()):
+           
+            if spb:
+                pspb = [p.position for p in Spb_g]
+                """
+                print(pspb)
+                for cen in Cen_pos:
+                    cent_tmp = system.particles[cen]
+                    print(cent_tmp.position)
+                    print(linalg.norm(np.array(pspb[0])-np.array(cent_tmp.position)))
+                    print(R * microtubule_length)
+                """
+            #exit()
+            hoomd.run(100)
+        converged = True
+    except:
+       converged = False
+       dt /= 2.
+       print(dt)
+       #Restore positions
+       for ip,p in enumerate(snapshot.particles.position):
+           
+           system.particles[ip].position = p
+       
+
+   
    
 """  
 gauss.disable()
@@ -182,7 +373,10 @@ while not(method.has_converged()):
 
 
 #Dumping
-xml = deprecated.dump.xml(filename=data_folder + "atoms.xml",period=None,group=all_beads,vis=True)
+
+if visu:
+    xml = deprecated.dump.xml(filename=data_folder + "atoms.hoomdxml",period=None,group=all_beads,vis=True)
+    exit()
 #gsd = dump.gsd(filename=data_folder + "atoms.gsd",period=None,group=all_beads)
 dcd = dump.dcd(filename=data_folder + 'poly.dcd', period=100,overwrite=True)
 
@@ -191,8 +385,8 @@ dcd = dump.dcd(filename=data_folder + 'poly.dcd', period=100,overwrite=True)
 
 import time
 t0 = time.time()
-md.integrate.mode_standard(dt=0.005)
-method=md.integrate.langevin(group=all_beads,kT=1,seed=seed)
+md.integrate.mode_standard(dt=0.01)
+method=md.integrate.langevin(group=all_move,kT=1,seed=seed)
 snp = system#.take_snapshot()
 
 
@@ -231,9 +425,27 @@ def Shift(bonds,snp):
         #b.a = new
 
 group_diffu = group.type(name="Diff", type='Diff')
-group_origin = group.type(name="Ori", type='Ori')      
 
-for i in range(1000):
+if Activ_Origins != []:
+    group_origin = group.type(name="Activ_Ori", type=Activ_Origins[0])
+    if len(Activ_Origins) > 1:
+        for t in Activ_Origins[1:]:
+            group_origin = group.union(name="Activ_origin",a=group_origin,
+                                       b =group.type(name="tmp",type=t))
+         
+ 
+#nl.tune(warmup=1,steps=1000)
+
+for i in range(100):
+    if spb:
+        for cen in Cen_pos:
+            cent_tmp = system.particles[cen]
+            #print(cent_tmp.position)
+            d = linalg.norm(np.array(pspb[0])-np.array(cent_tmp.position))
+            if d > 2 * R * microtubule_length:
+                print("MT too long",d)
+                exit()
+    
     #system.restore_snapshot(snp)
     hoomd.run(1000)
     
@@ -241,6 +453,7 @@ for i in range(1000):
     
     # update the position of the monomer by updating bonds
 
+    
     for iP,P in enumerate(lPolymers):
         verbose = False
         #if iP == 9:
