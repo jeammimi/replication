@@ -6,7 +6,7 @@ Created on Fri Jan 20 12:42:19 2017
 """
 
 
-                 
+
 from mayavi import mlab
 from tvtk.tools import visual
 from colour import Color
@@ -31,67 +31,70 @@ class Representation:
         self.traj = traj
         self.selections = []
         self.time_color = time_color
-        self.tube = tube 
+        self.tube = tube
         self.color=color
         self.named_selections = []
-    
+
         n_chains = len(list(self.traj.topology.chains))
-        
-        
+
+
         if by_resid:
             for i in range(n_chains):
                 add = ""
                 if what != "":
                     add = " and %s"%what
                 sele = "resid %i"%i+add
-                
+
                 self.named_selections.append(sele)
                 sel = self.traj.topology.select(sele)
-                
+
                 #print(sele,len(sel))
                 if len(sel) != 0:
                     self.selections.append(sel)
         else:
             self.named_selections.append(what)
             sel = self.traj.topology.select(what)
-            self.selections.append(sel)
-                    
+            if len(sel) != 0:
+                self.selections.append(sel)
+            else:
+                print("Empty selection",what)
+
     def draw(self,time):
         #print(self.selections)
         if self.first:
-            
+
             self.rep = []
-            
+
         for isel,sel in enumerate(self.selections):
             x,y,z = self.traj.xyz[time, sel].T
             if self.time_color != None:
-                
-                
+
+
                 colors = self.time_color(time)
                 if len(colors) < isel + 1:
                     print("The colouring function did not cover all the selection")
                     print(isel,self.named_selections[isel])
                     print(len(x),isel)
                     raise
-                
+
                 colors = colors[isel]
-                
+
                 if len(x) != len(colors):
                     print(len(x),len(colors),isel)
                     print(self.named_selections[isel])
                     raise
             else:
                 colors = [1 for i in range(len(x))]
-                
+
             #print(len(x),len(colors))
-            
-            if self.first:  
+
+            if self.first:
                 if self.tube:
                     self.rep.append(mlab.plot3d(x, y, z,colors ,vmin=1,vmax=2.1,tube_radius=0.03,opacity=1))
                 else:
                     self.rep.append(mlab.points3d(x, y, z,colors ,scale_factor=0.1,color=Color(self.color).rgb))
             else:
-                
+
                 self.rep[isel].mlab_source.set(x=x,y=y,z=z,scalars=colors)#,scalars=replic)
         self.first = False
 #print(x.shape,y.shape)
@@ -100,7 +103,7 @@ import copy
 data_folder = "../data/"
 with open(data_folder+"polymer_timing.dat","rb") as f:
         lPolymers = cPickle.load(f)
-        
+
 
 P = [np.array(lPolymers[p].get_replication_profile()) for p in range(len(lPolymers))]
 
@@ -112,7 +115,7 @@ def time_color(time):
         replic[l][replic[l] == 0 ] = 1
     #print(len(replic))
     return replic
-    
+
 Reprs = [Representation(traj=t,what="name Diff",tube=False,by_resid=False),
          Representation(traj=t,what="name Telo",tube=False,by_resid=False,color="green"),
          Representation(traj=t,what=" (not name Diff) and (not name Spb)",time_color=time_color)]
@@ -135,6 +138,6 @@ def anim():
         i = i+ 1
         i = i % len(t)
         yield
-        
+
 # Run the animation.
 anim()
