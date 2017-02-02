@@ -12,89 +12,73 @@ import scipy.linalg as linalg
 from scipy.spatial.distance import cdist
 from PMotion import Polymer
 import _pickle as cPickle
-from createPoly import len_chrom as ilen_chrom
-from createPoly import dist_centro, create_init_conf_yeast
-import sys
+from createPoly import create_init_conf_yeast
 import time
+import json
 
 
-def simulate(traj):
+def simulate(traj_filename):
 
-    test = False
-    if len(sys.argv) > 1:
-        test = True
-    seed = 0
+    with open(traj_filename, "r") as f:
+        traj = json.load(f)
+
+    seed = traj["seed"]
+    len_chrom = traj["len_chrom"]
+    Cent = traj["Cent"]
+    p_ribo = traj["p_ribo"]
+    R = traj["R"]
+    micron = traj["micron"]
+    data_folder = traj["data_folder"]
+
+    # Diffusing elements
+    N_diffu = traj["N_diffu"]
+    cut_off_inte = traj["cut_off_inte"]
+    p_inte = traj["p_inte"]
+    dt = traj["dt"]
+    p_origins = traj["p_origins"]
+
+    # Yeast case
+    spb = traj["spb"]
+    nucleole = traj["nucleole"]
+    telomere = traj["telomere"]
+    microtubule_length = traj["microtubule_length"] * micron
+    diameter_nuc = traj["diameter_nuc"] * micron
+    special_start = traj["special_start"]
+    Activ_Origins = traj["Activ_Origins"]
+    visu = traj["visu"]
+    dump_hic = traj["dump_hic"]
+
+    # Scenari
+    diff_alone = traj["diff_alone"]
+    diff_bind_when_free = traj["diff_bind_when_free"]
+    diff_bind_when_on_DNA = traj["diff_bind_when_on_DNA"]
+    replicate_DNA = traj["replicate_DNA"]
+
+
     np.random.seed(seed)
     hoomd.context.initialize("--mode=cpu")
 
-    Np = 16  # Number of polymer chains
-    npp = int(150 * 2 * 2)  # size of each polymer chain
-    R = 16 * 2
-    data_folder = "../data/"
-    N_diffu = 10  # Number of diffusing elements x2
-    cut_off_inte = 8  # 1.5
-    p_inte = 0.2  # 1/5
-    dt = 0.1
-    N_origins = 4
-    spb = True
-    microtubule_length = 0.4  # Micron
-    nucleole = True
-    diameter_nuc = R * 0.18
-    special_start = True
-    telomere = True
-    Activ_Origins = ['Ori']
-    visu = False
-    dump_hic = False
-
-    # Scenari options
-
-    # Or the element is alone
-    diff_alone = False
-
-    # Or all these option are available
-    diff_bind_when_free = True
-    diff_bind_when_on_DNA = False
 
     if diff_alone:
-        diff_bind_when_free = False
-        diff_bind_when_on_DNA = False
+        # Check
+        assert(diff_bind_when_free is False)
+        assert (diff_bind_when_on_DNA is False)
 
-    replicate_DNA = False
-
-    if nucleole:
-        pass
-        # Activ_Origins += ['Nuc']
-
-    Cent = [np.random.randint(npp) for i in range(Np)]
-    len_chrom = [npp for i in range(Np)]
-
-    len_chrom = [ic * 4 for ic in ilen_chrom]
-    Cent = [c * 4 for c in dist_centro]
-
-    p_ribo = [[0, 0] for i in range(16)]
-    p_ribo[11] = [90 * 4, 150]
-
-    if test:
-        special_start = False
-        spb = False
-        nucleole = False
-        Np = 2
-        Cent = []
-        telomere = False
-        len_chrom = [int(150 * 2 * 2)] * Np
     # End of parameter
     ##########################################
-    # Sim = []
+
     #########################################
     # Define polymer bonding and positions
 
+    Np = len(len_chrom)
+    assert(len(len_chrom) == len(Cent) == len(p_ribo))
     if special_start:
         Sim = create_init_conf_yeast(
             len_chrom=len_chrom,
             dist_centro=Cent,
             p_ribo=p_ribo,
             Radius=R,
-            Mt=microtubule_length * R)
+            Mt=microtubule_length)
     else:
         Sim = []
 
@@ -152,8 +136,7 @@ def simulate(traj):
         found_cen = False
         npp = len_chrom[i]  # Number of particles
         # Position of origin of replication
-        pos_origins = list(set([np.random.randint(npp)
-                                for ori in range(N_origins)]))
+        pos_origins = p_origins[i]
 
         if Sim == []:
             initp = 2 * np.random.rand(3) - 1
@@ -329,7 +312,7 @@ def simulate(traj):
     harmonic.bond_coeff.set('Mono_Diff', k=10.0, r0=1)
 
     if spb:
-        harmonic.bond_coeff.set('Spb_Cen', k=1000.0, r0=R * microtubule_length)
+        harmonic.bond_coeff.set('Spb_Cen', k=1000.0, r0=microtubule_length)
 
     if nucleole:
         harmonic.bond_coeff.set('Nuc_Nuc', k=330, r0=diameter_nuc)
@@ -531,7 +514,7 @@ def simulate(traj):
                 # print(cent_tmp.position)
                 d = linalg.norm(
                     np.array(pspb[0]) - np.array(cent_tmp.position))
-                if d > 2 * R * microtubule_length:
+                if d > 2 * microtubule_length:
                     print("MT too long", d)
                     exit()
 
@@ -713,3 +696,7 @@ def simulate(traj):
 
     print(gauss.get_energy(all_beads), wall_force_slj.get_energy(all_beads))
     print(time.time() - t0)
+
+
+if __name__ == "__main__":
+    simulate("./default.json")
